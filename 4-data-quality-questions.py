@@ -8,3 +8,21 @@ df = pl.read_csv("./data/sample_data.csv")
 # check docs at https://canimus.github.io/cuallee/polars/ on how to define a check and run it.
 # you will end up with a dataframe of results, check that the `status` column does not have any "FAIL" in it
 
+# Initialize the Check object
+check = Check()
+
+# Define checks
+check.is_complete("Id")  
+check.is_unique("Customer_ID")  
+
+# Run the checks
+results = check.validate(df)
+
+# Display results
+print(results)
+
+# Check that status column does not have fail
+if (results.filter(pl.col("status") == "FAIL").shape[0]) == 0:
+    print("All checks passed!")
+else:
+    print("Some checks failed.")
