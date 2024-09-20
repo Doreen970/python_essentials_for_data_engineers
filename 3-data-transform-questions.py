@@ -101,24 +101,73 @@ print(
 
 # Question: How do you connect to DuckDB and load data from a CSV file into a DuckDB table?
 # Connect to DuckDB and load data
+import duckdb
 
+con = duckdb.connect(database="my_database", read_only=False)
+con.execute(
+    "CREATE TABLE new (Customer_ID INTEGER, Customer_Name VARCHAR, Age INTEGER, Gender VARCHAR, Purchase_Amount FLOAT, Purchase_Date DATE)"
+)
 # Read data from CSV file into DuckDB table
-
+con.execute("COPY data FROM './new/my.csv' WITH HEADER CSV")
 # Question: How do you remove duplicate rows based on customer ID in DuckDB?
-
+con.execute("CREATE TABLE no_duplicate AS SELECT DISTINCT * FROM new")
 # Question: How do you handle missing values by replacing them with 0 in DuckDB?
-
+con.execute(
+    "CREATE TABLE no_missing AS SELECT \
+             Customer_ID, Customer_Name, \
+             COALESCE(Age, 0) AS Age, \
+             Gender, \
+             COALESCE(Purchase_Amount, 0.0) AS Purchase_Amount, \
+             Purchase_Date \
+             FROM new"
+)
 # Question: How do you remove outliers (e.g., age > 100 or purchase amount > 1000) in DuckDB?
-
+con.execute(
+    "DELETE FROM no_missing
+WHERE age > 100
+OR purchase_amount > 1000;
+"
+)
 # Question: How do you convert the Gender column to a binary format (0 for Female, 1 for Male) in DuckDB?
+con.execute(
+    "SELECT *, 
+       CASE WHEN Gender = 'Female' THEN 0 ELSE 1 END AS Gender_Binary
+FROM no_missing;
+"
+)
 
 # Question: How do you split the Customer_Name column into separate First_Name and Last_Name columns in DuckDB?
-
+con.execute(
+    "SELECT 
+    SPLIT_PART(Customer_Name, ' ', 1) AS First_Name, 
+    SPLIT_PART(Customer_Name, ' ', 2) AS Last_Name  
+FROM 
+    no_missing;
+"
+)
 # Question: How do you calculate the total purchase amount by Gender in DuckDB?
-
+total_purchase_by_gender = con.execute(
+    "SELECT 
+    Gender_Binary, 
+    SUM(purchase_amount) AS Total_Purchase_Amount
+FROM 
+    no_missing
+GROUP BY 
+    Gender_Binary;
+"
+)
 # Question: How do you calculate the average purchase amount by Age group in DuckDB?
-
+average_purchase_by_age_group = con.execute(
+    "SELECT
+    Age,
+    AVG(purchase_amount)
+    FROM no_missing
+    GROUP_BY
+    Age"
+)
 # Question: How do you print the results for total purchase amount by Gender and average purchase amount by Age group in DuckDB?
 print("====================== Results ======================")
 print("Total purchase amount by Gender:")
+print(total_purchase_by_gender)
 print("Average purchase amount by Age group:")
+print(average_purchase_by_age_group)
