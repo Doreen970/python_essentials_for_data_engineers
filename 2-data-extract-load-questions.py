@@ -22,6 +22,26 @@
 # Commit tells the DB connection to send the data to the database and commit it, if you don't commit the data will not be inserted
 
 # We should close the connection, as DB connections are expensive
+import sqlite3
+import duckdb
+
+sqlite_conn = sqlite3.connect('example_sqlite.db')
+sqlite_cursor = sqlite_conn.cursor()
+
+sqlite_cursor.execute("SELECT * FROM Customer")
+customer_data = sqlite_cursor.fetchall()
+
+duckdb_conn = duckdb.connect('example_duckdb.db')
+duckdb_cursor = duckdb_conn.cursor()
+
+
+
+for row in customer_data:
+    duckdb_cursor.execute("INSERT INTO Customer VALUES (?, ?, ?)", row)
+
+duckdb_conn.commit()
+sqlite_conn.close()
+duckdb_conn.close()
 
 # Cloud storage
 # Question: How do you read data from the S3 location given below and write the data to a DuckDB database?
@@ -40,6 +60,49 @@ file_key = "csv.gz/by_station/ASN00002022.csv.gz"
 # Connect to the DuckDB database (assume WeatherData table exists)
 
 # Insert data into the DuckDB WeatherData table
+pip install boto3 duckdb
+
+import boto3
+import gzip
+import csv
+import duckdb
+from botocore import UNSIGNED
+from botocore.config import Config
+
+
+s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+
+
+response = s3.get_object(Bucket=bucket_name, Key=file_key)
+gzipped_data = response['Body'].read()
+
+Decompress the gzip data
+csv_data = gzip.decompress(gzipped_data).decode('utf-8')
+
+#Read the CSV file 
+csv_reader = csv.reader(csv_data.splitlines())
+
+
+# Connect to DuckDB database 
+duckdb_conn = duckdb.connect('weather_data.db')
+
+
+# Insert data into the DuckDB WeatherData table
+
+# Skip the header if it exists
+next(csv_reader)
+
+# Insert rows into the WeatherData table
+insert_query = "INSERT INTO WeatherData VALUES (?, ?, ?, ?, ?)"
+for row in csv_reader:
+    
+    duckdb_conn.execute(insert_query)  
+
+duckdb_conn.commit()
+duckdb_conn.close()
+
+print("Data successfully loaded from S3 to DuckDB!")
+
 
 # API
 # Question: How do you read data from the CoinCap API given below and write the data to a DuckDB database?
@@ -55,6 +118,54 @@ url = "https://api.coincap.io/v2/exchanges"
 # Insert data into the DuckDB Exchanges table
 # Prepare data for insertion
 # Hint: Ensure that the data types of the data to be inserted is compatible with DuckDBs data column types in ./setup_db.py
+pip install requests
+
+import requests
+import duckdb
+
+url = "https://api.coincap.io/v2/exchanges"
+
+# Fetch data from the CoinCap API
+response = requests.get(url)
+if response.status_code == 200:
+    exchanges_data = response.json()["data"]
+else:
+    print(f"Failed to fetch data: {response.status_code}")
+    exchanges_data = []
+
+# Connect to DuckDB
+duckdb_conn = duckdb.connect('crypto_data.db')
+
+
+
+# Prepare data for insertion
+insert_query = '''
+    INSERT INTO Exchanges 
+    (id, name, rank, percentTotalVolume, volumeUsd, tradingPairs, socket, exchangeUrl, updated) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+'''
+
+# Insert data into DuckDB
+for exchange in exchanges_data:
+    
+    row = (
+        exchange.get("id"),
+        exchange.get("name"),
+        int(exchange.get("rank", 0)),  # Rank as integer
+        float(exchange.get("percentTotalVolume", 0.0)),  # Volume percentage as float
+        float(exchange.get("volumeUsd", 0.0)),  # USD volume as float
+        exchange.get("tradingPairs", ""),
+        bool(exchange.get("socket", False)),  # Convert socket value to boolean
+        exchange.get("exchangeUrl", ""),
+        exchange.get("updated", "")
+    )
+    
+    duckdb_conn.execute(insert_query, row)
+
+# Step 7: Commit and close the DuckDB connection
+duckdb_conn.commit()
+duckdb_conn.close()
+
 
 
 # Local disk
@@ -67,14 +178,6 @@ import sqlite3
 connection = sqlite3.connect('database_path')  
 cursor = connection.cursor()
 
-
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS sales_data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        year INTEGER,
-        sales REAL
-    )
-''')
 
 # Read the CSV file from local disk
 with open('sales_data.csv', newline='') as csvfile:
