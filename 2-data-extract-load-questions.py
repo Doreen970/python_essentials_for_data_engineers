@@ -60,8 +60,58 @@ url = "https://api.coincap.io/v2/exchanges"
 # Local disk
 # Question: How do you read a CSV file from local disk and write it to a database?
 # Look up open function with csvreader for python
+import csv
+import sqlite3
+
+# establish database connection
+connection = sqlite3.connect('database_path')  
+cursor = connection.cursor()
+
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS sales_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        year INTEGER,
+        sales REAL
+    )
+''')
+
+# Read the CSV file from local disk
+with open('sales_data.csv', newline='') as csvfile:
+    csvreader = csv.reader(csvfile)
+    
+    #Skip the header row (optional, depending on your CSV file)
+    next(csvreader)
+    
+    #Insert each row into the database
+    for row in csvreader:
+        year = int(row[0])
+        sales = float(row[1])
+        
+        cursor.execute('''
+            INSERT INTO sales_data (year, sales)
+            VALUES (?, ?)
+        ''', (year, sales))
+
+# Commit the transaction and close the connection
+connection.commit()
+connection.close()
 
 # Web scraping
 # Questions: Use beatiful soup to scrape the below website and print all the links in that website
 # URL of the website to scrape
 url = 'https://example.com'
+
+import requests
+from bs4 import BeautifulSoup
+
+#get data from the website using requests
+
+response = requests.get(url)
+
+# extract HTML content
+soup = BeautifulSoup(response.text, 'html.parser')
+
+# Example: Find and print all the links on the webpage
+for b in soup.find_all('a'):
+    print(b.get('href'))
